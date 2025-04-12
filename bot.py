@@ -12,6 +12,7 @@ import os
 from wordle import WordleGame
 from wordfreq import top_n_list
 from datetime import datetime
+from keep_alive import keep_alive
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -95,5 +96,5 @@ async def help_wordle(interaction: discord.Interaction):
         "`result: 🟨⬛⬛🟩🟩`"
     )
     await interaction.response.send_message(help_text)
-
+keep_alive()
 bot.run(TOKEN)
