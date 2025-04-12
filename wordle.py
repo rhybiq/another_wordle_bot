@@ -6,8 +6,13 @@ Created on Sat Apr 12 18:17:46 2025
 """
 
 import random
+import logging
 
-WORDS = ['apple', 'grape', 'train', 'plant', 'beach']
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Get a logger instance
+logger = logging.getLogger(__name__)
+
 
 class WordleGame:
     def __init__(self, word_list, word_length=5):
@@ -17,6 +22,7 @@ class WordleGame:
         self.secret_word = random.choice(self.word_list)
         self.remaining_guesses = self.allowed_guesses
         self.history = []
+        logger.info(f"Wordle game initialized with secret word: {self.secret_word}")
 
     def guess(self, word):
         word = word.lower()
