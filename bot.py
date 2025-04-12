@@ -11,6 +11,8 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from  wordle import WordleGame
 from english_words import get_english_words_set  
+from wordfreq import top_n_list
+
 
 
 
@@ -34,7 +36,7 @@ async def start_wordle(ctx, length: int = 5):
         await ctx.send("Please choose a word length between 5 and 10.")
         return
 
-    filtered_words = [word for word in get_english_words_set(['web2'], lower=True) if len(word) == length]
+    filtered_words = [word for word in top_n_list('en', 500000) if len(word) == length]
     if not filtered_words:
         await ctx.send(f"No words found with length {length}. Try a different number.")
         return
@@ -42,7 +44,7 @@ async def start_wordle(ctx, length: int = 5):
     games[ctx.author.id] = WordleGame(filtered_words, word_length=length)
     await ctx.send(f"Wordle game started with {length}-letter words! You get {length + 1} guesses. Use `!guess yourword` to make a guess.")
 
-@bot.command(name='guess')
+@bot.command(name='guessword')
 async def _evaluate_guess(ctx, guess: str):
     # Check if the user has an active game
     if ctx.author.id not in games:
@@ -66,5 +68,26 @@ async def _evaluate_guess(ctx, guess: str):
         del games[ctx.author.id]  # Remove the game after it's over
     else:
         await ctx.send(result)
+
+@bot.command(name='helpwordle')
+async def help_wordle(ctx):
+    help_text = (
+        "**How to Play Wordle on Discord** 🧠\n\n"
+        "🎯 The goal is to guess a secret word within a limited number of tries.\n\n"
+        "**Commands:**\n"
+        "`/startwordle [length]` – Starts a new game. You can specify word length (default is 5).\n"
+        "`/guess yourword` – Submit a guess.\n"
+        "`/helpwordle` – Shows this help message.\n\n"
+        "**Rules:**\n"
+        "🟩 = Correct letter in correct place\n"
+        "🟨 = Correct letter, wrong place\n"
+        "⬛ = Letter not in the word\n\n"
+        "✅ You win by guessing the word before running out of guesses!\n"
+        "⛔ You lose if you run out of guesses.\n\n"
+        "_Example:_\n"
+        "`guess: GRAPE`\n"
+        "`result: 🟨⬛⬛🟩🟩`"
+    )
+    await ctx.send(help_text)
 
 bot.run(TOKEN)
