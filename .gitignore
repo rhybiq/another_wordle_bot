@@ -20,3 +20,4 @@ __pycache__/*
 .vscode/launch.json
 .env
 .env
+.env
