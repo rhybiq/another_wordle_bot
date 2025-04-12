@@ -20,6 +20,11 @@ class WordleGame:
 
     def guess(self, word):
         word = word.lower()
+        
+        # Check if the word has already been guessed
+        if any(guess == word for guess, _ in self.history):
+            return f"You've already guessed the word '{word}'. Try a different word."
+
         if len(word) != self.word_length:
             return f"Guess must be {self.word_length} letters long."
 

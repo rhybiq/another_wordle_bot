@@ -18,3 +18,5 @@
 *.a
 __pycache__/*
 .vscode/launch.json
+.env
+.env

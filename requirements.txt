@@ -1,0 +1,5 @@
+discord.py==2.3.2
+python-dotenv
+english-words
+wordfreq
+discord-py-interactions
