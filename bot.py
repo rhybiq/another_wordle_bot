@@ -4,18 +4,14 @@ Created on Sat Apr 12 18:10:17 2025
 
 @author: rhybiq
 """
-import sys
 import discord
-import os
 from discord.ext import commands
+from discord import app_commands
 from dotenv import load_dotenv
-from  wordle import WordleGame
-from english_words import get_english_words_set  
+import os
+from wordle import WordleGame
 from wordfreq import top_n_list
-
-
-
-
+from datetime import datetime
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -29,54 +25,64 @@ games = {}  # Keeps track of games per user
 @bot.event
 async def on_ready():
     print(f'{bot.user} has connected to Discord!')
+    try:
+        synced = await bot.tree.sync()  # Sync slash commands with Discord
+        print(f"Synced {len(synced)} commands.")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}")
 
-@bot.command(name='startwordle')
-async def start_wordle(ctx, length: int = 5):
+@bot.tree.command(name="startwordle", description="Start a Wordle game with a specified word length.")
+async def start_wordle(interaction: discord.Interaction, length: int = 5):
     if length < 5 or length > 10:
-        await ctx.send("Please choose a word length between 5 and 10.")
+        await interaction.response.send_message("Please choose a word length between 5 and 10.")
         return
 
     filtered_words = [word for word in top_n_list('en', 500000) if len(word) == length]
     if not filtered_words:
-        await ctx.send(f"No words found with length {length}. Try a different number.")
+        await interaction.response.send_message(f"No words found with length {length}. Try a different number.")
         return
 
-    games[ctx.author.id] = WordleGame(filtered_words, word_length=length)
-    await ctx.send(f"Wordle game started with {length}-letter words! You get {length + 1} guesses. Use `!guess yourword` to make a guess.")
+    games[interaction.user.id] = {
+        "game": WordleGame(filtered_words, word_length=length),
+        "start_time": datetime.now()  # Record the start time
+    }
+    await interaction.response.send_message(
+        f"Wordle game started with {length}-letter words! You get {length + 1} guesses. Use `/guessword yourword` to make a guess."
+    )
 
-@bot.command(name='guessword')
-async def _evaluate_guess(ctx, guess: str):
-    # Check if the user has an active game
-    if ctx.author.id not in games:
-        await ctx.send("You don't have an active game. Start one with `/startwordle`.")
+@bot.tree.command(name="guessword", description="Make a guess in your Wordle game.")
+async def guess_word(interaction: discord.Interaction, guess: str):
+    if interaction.user.id not in games:
+        await interaction.response.send_message("You don't have an active game. Start one with `/startwordle`.")
         return
 
-    # Get the user's game instance
-    game = games[ctx.author.id]
+    game_data = games[interaction.user.id]
+    game = game_data["game"]
+    start_time = game_data["start_time"]
 
-    # Make a guess and get the result
     result = game.guess(guess)
 
-    # Check if the game is solved or over
     if game.is_solved():
-        await ctx.send(result)
-        await ctx.send("🎉 Congratulations, you solved it!")
-        del games[ctx.author.id]  # Remove the game after it's solved
+        elapsed_time = datetime.now() - start_time
+        minutes, seconds = divmod(elapsed_time.total_seconds(), 60)
+        await interaction.response.send_message(
+            f"{result}\n🎉 Congratulations, you solved it in {int(minutes)} minutes and {int(seconds)} seconds!"
+        )
+        del games[interaction.user.id]
     elif game.remaining_guesses == 0:
-        await ctx.send(result)
-        await ctx.send("😢 Better luck next time!")
-        del games[ctx.author.id]  # Remove the game after it's over
+        await interaction.response.send_message(f"{result}\n😢 Better luck next time!")
+        del games[interaction.user.id]
     else:
-        await ctx.send(result)
+        await interaction.response.send_message(result)
 
-@bot.command(name='helpwordle')
-async def help_wordle(ctx):
+@bot.tree.command(name="helpwordle", description="Get help on how to play Wordle.")
+async def help_wordle(interaction: discord.Interaction):
     help_text = (
         "**How to Play Wordle on Discord** 🧠\n\n"
         "🎯 The goal is to guess a secret word within a limited number of tries.\n\n"
         "**Commands:**\n"
         "`/startwordle [length]` – Starts a new game. You can specify word length (default is 5).\n"
-        "`/guess yourword` – Submit a guess.\n"
+        "`/guessword yourword` – Submit a guess.\n"
         "`/helpwordle` – Shows this help message.\n\n"
         "**Rules:**\n"
         "🟩 = Correct letter in correct place\n"
@@ -88,6 +94,6 @@ async def help_wordle(ctx):
         "`guess: GRAPE`\n"
         "`result: 🟨⬛⬛🟩🟩`"
     )
-    await ctx.send(help_text)
+    await interaction.response.send_message(help_text)
 
 bot.run(TOKEN)
