@@ -6,9 +6,9 @@ Created on Sat Apr 12 18:17:46 2025
 """
 
 import random
+import logging
 
-WORDS = ['apple', 'grape', 'train', 'plant', 'beach']
-
+logging.basicConfig(level=logging.INFO)
 class WordleGame:
     def __init__(self, word_list, word_length=5):
         self.word_length = word_length
@@ -17,19 +17,26 @@ class WordleGame:
         self.secret_word = random.choice(self.word_list)
         self.remaining_guesses = self.allowed_guesses
         self.history = []
+        self.errors = False
+        logging.info(f"Secret word chosen: {self.secret_word}")
 
     def guess(self, word):
         word = word.lower()
         
         # Check if the word has already been guessed
         if any(guess == word for guess, _ in self.history):
+            self.errors = True
             return f"You've already guessed the word '{word}'. Try a different word."
+            
 
         if len(word) != self.word_length:
+            self.errors = True
             return f"Guess must be {self.word_length} letters long."
+            
 
         if word not in self.word_list:
-            return "Not a valid word."
+            self.errors = True
+            return f"{word} is not a valid word."
 
         self.remaining_guesses -= 1
         result = self._evaluate_guess(word)
@@ -50,6 +57,10 @@ class WordleGame:
 
     def is_solved(self):
         return self.history and self.history[-1][0] == self.secret_word
+    def is_error(self):
+        return self.errors
+    def reset_errors(self):
+        self.errors = False
 
     def _evaluate_guess(self, guess):
         result = []
