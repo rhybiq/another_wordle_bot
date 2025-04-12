@@ -3,3 +3,4 @@ python-dotenv
 english-words
 wordfreq
 discord-py-interactions
+flask
