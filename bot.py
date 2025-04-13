@@ -13,10 +13,13 @@ from wordle import WordleGame
 from wordfreq import top_n_list
 from datetime import datetime
 from keep_alive import keep_alive
+import asyncio
+import logging
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
+logging.basicConfig(level=logging.INFO)
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
@@ -38,7 +41,10 @@ async def start_wordle(interaction: discord.Interaction, length: int = 5):
         await interaction.response.send_message("Please choose a word length between 5 and 10.")
         return
 
-    filtered_words = [word for word in top_n_list('en', 500000) if len(word) == length]
+    filtered_words = [
+        word for word in top_n_list('en', 500000) 
+        if len(word) == length and word.isalpha() and word.isascii()
+    ]
     if not filtered_words:
         await interaction.response.send_message(f"No words found with length {length}. Try a different number.")
         return
@@ -50,11 +56,12 @@ async def start_wordle(interaction: discord.Interaction, length: int = 5):
     await interaction.response.send_message(
         f"Wordle game started with {length}-letter words! You get {length + 1} guesses. Use `/guessword yourword` to make a guess."
     )
+    asyncio.create_task(game_timeout(interaction.user.id, interaction))
 
 @bot.tree.command(name="guessword", description="Make a guess in your Wordle game.")
 async def guess_word(interaction: discord.Interaction, guess: str):
     if interaction.user.id not in games:
-        await interaction.response.send_message("You don't have an active game. Start one with `/startwordle`.")
+        await interaction.response.send_message("You don't have an active game. Start one with `/startwordle`.", ephemeral=True)
         return
 
     game_data = games[interaction.user.id]
@@ -62,7 +69,8 @@ async def guess_word(interaction: discord.Interaction, guess: str):
     start_time = game_data["start_time"]
 
     result = game.guess(guess)
-
+ 
+    logging.info(f"Result: {result}")
     if game.is_solved():
         elapsed_time = datetime.now() - start_time
         minutes, seconds = divmod(elapsed_time.total_seconds(), 60)
@@ -73,6 +81,10 @@ async def guess_word(interaction: discord.Interaction, guess: str):
     elif game.remaining_guesses == 0:
         await interaction.response.send_message(f"{result}\n😢 Better luck next time!")
         del games[interaction.user.id]
+    elif game.is_error():
+        logging.info(f"Error in the chat: {result}")
+        await interaction.response.send_message(result,ephemeral=True)
+        game.reset_errors()
     else:
         await interaction.response.send_message(result)
 
@@ -96,5 +108,16 @@ async def help_wordle(interaction: discord.Interaction):
         "`result: 🟨⬛⬛🟩🟩`"
     )
     await interaction.response.send_message(help_text)
+
+async def game_timeout(user_id, interaction):
+    await asyncio.sleep(9 * 60)  # Wait for 9 minutes
+    if user_id in games:  # Check if the game is still active
+        #await interaction.followup.send(f"{interaction.user.mention}, 1 minute left to finish your Wordle game!")
+        await interaction.send_message(f"{interaction.user.mention}, 1 minute left to finish your Wordle game!")
+    await asyncio.sleep(60)  # Wait for the final minute
+    if user_id in games:  # Check again if the game is still active
+        del games[user_id]  # Remove the game
+        await interaction.followup.send(f"{interaction.user.mention}, time's up! Your Wordle game has ended.")
+
 keep_alive()
 bot.run(TOKEN)
