@@ -56,7 +56,7 @@ async def start_wordle(interaction: discord.Interaction, length: int = 5):
     await interaction.response.send_message(
         f"Wordle game started with {length}-letter words! You get {length + 1} guesses. Use `/guessword yourword` to make a guess."
     )
-    asyncio.create_task(game_timeout(interaction.user.id, interaction))
+#    asyncio.create_task(game_timeout(interaction.user.id, interaction))
 
 @bot.tree.command(name="guessword", description="Make a guess in your Wordle game.")
 async def guess_word(interaction: discord.Interaction, guess: str):
