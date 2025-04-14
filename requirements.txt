@@ -4,3 +4,7 @@ english-words
 wordfreq
 discord-py-interactions
 flask
+enchant
+nltk
+aiosqlite
+matplotlib
