@@ -12,32 +12,34 @@ logging.basicConfig(level=logging.INFO)
 class WordleGame:
     def __init__(self, word_list, word_length=5):
         self.word_length = word_length
-        self.allowed_guesses = word_length + 1
-        self.word_list = [word for word in word_list if len(word) == word_length]
-        self.secret_word = random.choice(self.word_list)
-        self.remaining_guesses = self.allowed_guesses
+        self.word_list = [word.lower() for word in word_list if len(word) == word_length and word.isalpha() and word.isascii()]
+        self.secret_word = random.choice(self.word_list).lower()
+        if self.secret_word not in self.word_list:
+            self.word_list.append(self.secret_word)  # Ensure the secret word is in the list
+        self.remaining_guesses = word_length + 1
         self.history = []
         self.errors = False
         logging.info(f"Secret word chosen: {self.secret_word}")
 
     def guess(self, word):
         word = word.lower()
-        
+
         # Check if the word has already been guessed
         if any(guess == word for guess, _ in self.history):
             self.errors = True
             return f"You've already guessed the word '{word}'. Try a different word."
-            
 
+        # Check if the word length matches
         if len(word) != self.word_length:
             self.errors = True
             return f"Guess must be {self.word_length} letters long."
-            
 
+        # Check if the word is valid
         if word not in self.word_list:
             self.errors = True
             return f"{word} is not a valid word."
 
+        # Process the guess
         self.remaining_guesses -= 1
         result = self._evaluate_guess(word)
         self.history.append((word, result))
