@@ -41,7 +41,9 @@ async def on_ready():
     print("Database initialized.")
     print(f'{bot.user} has connected to Discord!')
     try:
-        synced = await bot.tree.sync()  # Sync slash commands with Discord
+        # Clear and resync commands
+         # Clear global commands
+        synced = await bot.tree.sync()  # Sync commands
         print(f"Synced {len(synced)} commands.")
     except Exception as e:
         print(f"Failed to sync commands: {e}")
@@ -95,27 +97,29 @@ async def guess_word(interaction: discord.Interaction, guess: str):
         elapsed_time = datetime.now() - start_time
         minutes, seconds = divmod(elapsed_time.total_seconds(), 60)
 
-        # Update stats for a win
-        await stats.update_stats(
-            user_id=str(interaction.user.id),
-            server_id=str(interaction.guild.id),  # Pass the server_id here
-            games_won=1,
-            guess_number=len(game.history),
-            time_taken=int(elapsed_time.total_seconds()),
-            won=True
-        )
+        # Update stats only if the word length is 5
+        if game.word_length == 5:
+            await stats.update_stats(
+                user_id=str(interaction.user.id),
+                server_id=str(interaction.guild.id),
+                games_won=1,
+                guess_number=len(game.history),
+                time_taken=int(elapsed_time.total_seconds()),
+                won=True
+            )
 
         await interaction.response.send_message(
             f"{result}\n🎉 Congratulations, you solved it in {int(minutes)} minutes and {int(seconds)} seconds!"
         )
         del games[interaction.user.id]
     elif game.remaining_guesses == 0:
-        # Update stats for a loss
-        await stats.update_stats(
-            user_id=str(interaction.user.id),
-            server_id=str(interaction.guild.id),  # Pass the server_id here
-            won=False
-        )
+        # Update stats only if the word length is 5
+        if game.word_length == 5:
+            await stats.update_stats(
+                user_id=str(interaction.user.id),
+                server_id=str(interaction.guild.id),
+                won=False
+            )
 
         await interaction.response.send_message(f"{result}\n😢 Better luck next time!")
         del games[interaction.user.id]
@@ -127,7 +131,7 @@ async def guess_word(interaction: discord.Interaction, guess: str):
         await interaction.response.send_message(result)
 
 # Command: View Statistics
-@bot.tree.command(name="stats", description="View your Wordle statistics.")
+@bot.tree.command(name="wordleuserstats", description="View your Wordle statistics.")
 async def view_stats(interaction: discord.Interaction):
     # Fetch stats for the user in the current server
     stats_data = await stats.fetch_stats(
@@ -152,82 +156,85 @@ async def view_stats(interaction: discord.Interaction):
     fastest_rank = rankings["fastest_rank"]
     average_rank = rankings["average_rank"]
 
-    # Format guess distribution
-    guesses = list(map(int, guess_distribution.keys()))
-    counts = list(guess_distribution.values())
-
-    # Create a figure with two subplots
-    fig, axes = plt.subplots(2, 1, figsize=(10, 10), gridspec_kw={'height_ratios': [1, 2]})
-    fig.subplots_adjust(hspace=0.1)  # Add space between the plots
-
-    # Plot 1: Statistics
-    axes[0].axis('off')  # Turn off the axes for the statistics section
-    axes[0].text(0.5, 0.9, f"{str(interaction.user.name)}'s STATISTICS", fontsize=20, ha='center', weight='bold')
-
-    # Align statistics horizontally
-    stats_x = [0.15, 0.35, 0.55, 0.75]  # Horizontal positions for the stats
-    stats_labels = ["Played", "Win %", "Cur. Streak", "Max Streak"]
-    stats_values = [games_played, f"{win_percentage:.0f}%", current_streak, max_streak]
-
-    # Adjust vertical positions to avoid overlapping
-    value_y = 0.7  # Vertical position for values
-    label_y = 0.6  # Vertical position for labels
-
-    for x, label, value in zip(stats_x, stats_labels, stats_values):
-        axes[0].text(x, value_y, str(value), fontsize=24, ha='center', weight='bold')  # Values
-        axes[0].text(x, label_y, label, fontsize=18, ha='center')  # Labels
-
-    # Add rankings
-    rankings_x = [0.25, 0.5, 0.75]  # Horizontal positions for rankings
-    rankings_labels = ["Win Rank", "Fastest Rank", "Avg Time Rank"]
-    rankings_values = [win_rank, fastest_rank, average_rank]
-
-    # Adjust vertical positions for rankings
-    rank_value_y = 0.4  # Vertical position for ranking values
-    rank_label_y = 0.3  # Vertical position for ranking labels
-
-    for x, label, value in zip(rankings_x, rankings_labels, rankings_values):
-        axes[0].text(x, rank_value_y, f"#{value}" if value else "N/A", fontsize=24, ha='center', weight='bold')  # Values
-        axes[0].text(x, rank_label_y, label, fontsize=18, ha='center')  # Labels
-
-    # Plot 2: Guess Distribution
-    axes[1].set_title("GUESS DISTRIBUTION", fontsize=16, weight='bold', pad=10)  # Reduce padding for a more compact layout
-    if guesses and counts:
-        max_count = max(counts)
-        bar_height = 0.6  # Increase bar height to reduce the gap between bars
-        bar_positions = [i * 0.8 for i in range(len(guesses))]  # Reduce spacing between bars
-
-        # Draw bars and add labels
-        for i, (guess, count) in enumerate(zip(guesses, counts)):
-            bar_color = 'green' if count == max_count else 'gray'
-            axes[1].barh(bar_positions[i], count, color=bar_color, edgecolor='black', height=bar_height)
-            axes[1].text(count + 0.5, bar_positions[i], str(count), va='center', fontsize=8)  # Add count labels closer to the bars
-            axes[1].text(-1.5, bar_positions[i], str(guess), va='center', fontsize=8)  # Add guess labels closer to the bars
-
-        axes[1].invert_yaxis()  # Invert y-axis to match the example
-        axes[1].set_xlim(0, max_count + 5)  # Adjust x-axis limits for better spacing
-        axes[1].set_xticks([])  # Remove x-axis ticks for a cleaner look
-        axes[1].set_yticks([])  # Remove y-axis ticks for compactness
-        axes[1].grid(axis='x', linestyle='--', alpha=0.5)  # Keep light grid lines for readability
-        axes[1].axis('off') 
-    else:
-        axes[1].text(0.5, 0.5, "No guess distribution data available.", fontsize=10, ha='center')
-        axes[1].axis('off')  # Turn off all axes for the empty state
-
-    # Save the image to a BytesIO object
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png', bbox_inches='tight', dpi=300)
-    buf.seek(0)
-    plt.close()
-
-    # Prepare the file for Discord
-    file = discord.File(buf, filename="wordle_stats.png")
-
-    # Send the response
-    await interaction.response.send_message(
-        content=f"Here are your Wordle statistics for this server, {interaction.user.name}!",
-        file=file
+    # Create the embed
+    embed = discord.Embed(
+        title=f"{interaction.user.name}'s Wordle Statistics",
+        color=discord.Color.blue()
     )
+
+    # Add statistics to the embed
+    embed.add_field(name="Played", value=str(games_played), inline=True)
+    embed.add_field(name="Won", value=str(games_won), inline=True)
+    embed.add_field(name="Win %", value=f"{win_percentage:.0f}%", inline=True)
+    embed.add_field(name="Current Win Streak", value=str(current_streak), inline=True)
+    embed.add_field(name="Max Win Streak", value=str(max_streak), inline=True)
+
+    # Add rankings to the embed
+    embed.add_field(name="Win Rank", value=f"#{win_rank}" if win_rank else "N/A", inline=True)
+    embed.add_field(name="Fastest Rank", value=f"#{fastest_rank}" if fastest_rank else "N/A", inline=True)
+    embed.add_field(name="Avg Time Rank", value=f"#{average_rank}" if average_rank else "N/A", inline=True)
+
+    # Add guess distribution to the embed
+    if guess_distribution:
+        guess_dist_text = "\n".join(
+            f"{guess} : {count}" for guess, count in sorted(guess_distribution.items(), key=lambda x: int(x[0]))
+        )
+        embed.add_field(name="Guess Distribution", value=guess_dist_text, inline=False)
+    else:
+        embed.add_field(name="Guess Distribution", value="No data available", inline=False)
+
+    # Send the embed
+    await interaction.response.send_message(embed=embed)
+
+# Command: View Leaderboard
+@bot.tree.command(name="wordleleaderboard", description="View the Wordle leaderboard for this server.")
+async def wordle_leaderboard(interaction: discord.Interaction, category: str):
+    # Validate the category
+    valid_categories = ["win_percentage", "fastest_time", "average_time", "max_streak"]
+    if category not in valid_categories:
+        await interaction.response.send_message(
+            f"Invalid category! Please choose from: {', '.join(valid_categories)}.",
+            ephemeral=True
+        )
+        return
+
+    # Fetch leaderboard data
+    leaderboard = await stats.fetch_leaderboard(
+        server_id=str(interaction.guild.id),
+        category=category
+    )
+
+    # Map category names to display names
+    category_display = {
+        "win_percentage": "Top Win Percentage",
+        "fastest_time": "Fastest Time",
+        "average_time": "Fastest Average Time",
+        "max_streak": "Biggest Max Streak"
+    }
+
+    # Create the embed
+    embed = discord.Embed(
+        title=f"Wordle Leaderboard - {category_display[category]}",
+        color=discord.Color.gold()
+    )
+
+    if leaderboard:
+        for rank, (user_id, value) in enumerate(leaderboard, start=1):
+            user = await bot.fetch_user(user_id)  # Fetch the user's name
+            if category == "win_percentage":
+                value = f"{value * 100:.2f}%"  # Convert to percentage
+            elif category in ["fastest_time", "average_time"]:
+                value = f"{value:.2f} seconds"  # Format time
+            embed.add_field(
+                name=f"#{rank}: {user.name if user else 'Unknown User'}",
+                value=f"{value}",
+                inline=False
+            )
+    else:
+        embed.description = "No data available for this category."
+
+    # Send the embed
+    await interaction.response.send_message(embed=embed)
 
 # Command: Help
 @bot.tree.command(name="helpwordle", description="Get help on how to play Wordle.")
@@ -251,6 +258,10 @@ async def help_wordle(interaction: discord.Interaction):
         "`result: 🟨⬛⬛🟩🟩`"
     )
     await interaction.response.send_message(help_text)
+
+
+
+    
 
 # Keep the bot alive and run it
 keep_alive()

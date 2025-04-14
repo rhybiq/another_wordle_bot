@@ -55,7 +55,7 @@ async def update_stats(user_id, server_id, games_played=0, games_won=0, guess_nu
             else:
                 current_games_played = 0
                 current_games_won = 0
-                current_fastest_time = None
+                current_fastest_time = 0
                 current_average_time = 0
                 guess_distribution = {}
 
@@ -65,7 +65,7 @@ async def update_stats(user_id, server_id, games_played=0, games_won=0, guess_nu
 
         # Update fastest time
         if time_taken is not None:
-            if current_fastest_time is None or time_taken < current_fastest_time:
+            if current_fastest_time == 0 or time_taken < current_fastest_time:
                 current_fastest_time = time_taken
 
         # Update average time
@@ -174,3 +174,45 @@ async def fetch_server_rankings(server_id, user_id):
         "fastest_rank": user_fastest_rank,
         "average_rank": user_average_rank
     }
+
+async def fetch_leaderboard(server_id, category):
+    async with aiosqlite.connect(DATABASE_FILE) as db:
+        if category == "win_percentage":
+            query = """
+                SELECT user_id, games_won * 1.0 / games_played AS win_percentage
+                FROM user_stats
+                WHERE server_id = ? AND games_played > 0
+                ORDER BY win_percentage DESC
+                LIMIT 5
+            """
+        elif category == "fastest_time":
+            query = """
+                SELECT user_id, fastest_time
+                FROM user_stats
+                WHERE server_id = ? AND fastest_time > 0
+                ORDER BY fastest_time ASC
+                LIMIT 5
+            """
+        elif category == "average_time":
+            query = """
+                SELECT user_id, average_time
+                FROM user_stats
+                WHERE server_id = ? AND average_time > 0
+                ORDER BY average_time ASC
+                LIMIT 5
+            """
+        elif category == "max_streak":
+            query = """
+                SELECT user_id, max_streak
+                FROM user_stats
+                WHERE server_id = ?
+                ORDER BY max_streak DESC
+                LIMIT 5
+            """
+        else:
+            return []
+
+        async with db.execute(query, (server_id,)) as cursor:
+            rows = await cursor.fetchall()
+
+    return rows
