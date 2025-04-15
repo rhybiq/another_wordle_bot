@@ -9,3 +9,4 @@ nltk
 aiosqlite
 matplotlib
 supabase
+requests
