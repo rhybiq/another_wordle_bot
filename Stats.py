@@ -147,29 +147,56 @@ async def fetch_server_rankings(server_id, user_id):
     }
 
 async def fetch_leaderboard(server_id, category):
-    # Define the column to sort by based on the category
+    # Fetch all users' stats in the server from Supabase
+    response = supabase.table("user_stats").select(
+        "user_id, games_won, games_played, fastest_time, average_time, max_streak"
+    ).eq("server_id", server_id).execute()
+    
+
+    rows = response.data if response.data else []
+
+    # Process leaderboard based on the category
     if category == "win_percentage":
-        sort_column = "games_won / NULLIF(games_played, 0)"  # Avoid division by zero
-        order = "desc"
+        leaderboard = [
+            {
+                "user_id": row["user_id"],
+                "value": row["games_won"] / row["games_played"] if row["games_played"] > 0 else 0
+            }
+            for row in rows if row["games_played"] > 0
+        ]
+        leaderboard = sorted(leaderboard, key=lambda x: x["value"], reverse=True)
+
     elif category == "fastest_time":
-        sort_column = "fastest_time"
-        order = "asc"
+        leaderboard = [
+            {
+                "user_id": row["user_id"],
+                "value": row["fastest_time"] if row["fastest_time"] > 0 else float("inf")
+            }
+            for row in rows
+        ]
+        leaderboard = sorted(leaderboard, key=lambda x: x["value"])
+
     elif category == "average_time":
-        sort_column = "average_time"
-        order = "asc"
+        leaderboard = [
+            {
+                "user_id": row["user_id"],
+                "value": row["average_time"] if row["average_time"] > 0 else float("inf")
+            }
+            for row in rows
+        ]
+        leaderboard = sorted(leaderboard, key=lambda x: x["value"])
+
     elif category == "max_streak":
-        sort_column = "max_streak"
-        order = "desc"
+        leaderboard = [
+            {
+                "user_id": row["user_id"],
+                "value": row["max_streak"]
+            }
+            for row in rows
+        ]
+        leaderboard = sorted(leaderboard, key=lambda x: x["value"], reverse=True)
+
     else:
-        return []
+        raise ValueError(f"Invalid category: {category}")
 
-    # Fetch leaderboard data from Supabase
-    response = supabase.rpc(
-        "fetch_leaderboard",  # Replace with a Supabase function if needed
-        {
-            "server_id": server_id,
-            "category": category,
-        }
-    ).execute()
-
-    return response.data
+    return leaderboard

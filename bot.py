@@ -228,47 +228,62 @@ async def view_stats(interaction: discord.Interaction):
     ]
 )
 async def wordle_leaderboard(interaction: discord.Interaction, category: app_commands.Choice[str]):
-    # Fetch leaderboard data
-    leaderboard = await stats.fetch_leaderboard(
-        server_id=str(interaction.guild.id),
-        category=category.value  # Use the value of the selected choice
-    )
+    try:
+        await interaction.response.defer()
+        # Fetch leaderboard data
 
-    # Map category names to display names
-    category_display = {
-        "win_percentage": "Top Win Percentage",
-        "fastest_time": "Quickest Solve",
-        "average_time": " Avg Time",
-        "max_streak": " Winning Streak"
-    }
+        leaderboard = await stats.fetch_leaderboard(
+            server_id=str(interaction.guild.id),
+            category=category.value  # Use the value of the selected choice
+        )
 
-    # Create the embed
-    embed = discord.Embed(
-        title=f"Wordle Leaderboard - {category_display[category.value]}",
-        color=discord.Color.gold()
-    )
-    await interaction.response.defer()
-    if leaderboard:
-        leaderboard_text = ""
-        for rank, (user_id, value) in enumerate(leaderboard, start=1):
-            user = await bot.fetch_user(user_id)  # Fetch the user's name
-            username = user.name if user else "Unknown User"
+        # Map category names to display names
+        category_display = {
+            "win_percentage": "Top Win Percentage",
+            "fastest_time": "Quickest Solve",
+            "average_time": " Avg Time",
+            "max_streak": " Winning Streak"
+        }
 
-            # Format the value based on the category
-            if category.value == "win_percentage":
-                value = f"{value * 100:.2f}%"  # Convert to percentage
-            elif category.value in ["fastest_time", "average_time"]:
-                value = f"{value:.2f} seconds"  # Format time
+        # Create the embed
+        embed = discord.Embed(
+            title=f"Wordle Leaderboard - {category_display[category.value]}",
+            color=discord.Color.gold()
+        )
+        
+        if leaderboard:
+            leaderboard_text = ""
+            for rank, entry in enumerate(leaderboard, start=1):
+                user_id = entry["user_id"]  # Extract the user_id
+                value = entry["value"]      # Extract the value
 
-            # Add the rank, username, and value in the same row
-            leaderboard_text += f"**#{rank}**: {username} - {value}\n"
+                try:
+                    # Fetch the user's name
+                    user = await bot.fetch_user(user_id)
+                    username = user.name if user else "Unknown User"
+                except discord.NotFound:
+                    username = "Unknown User"
+                except Exception as e:
+                    username = "Unknown User"
 
-        embed.description = leaderboard_text
-    else:
-        embed.description = "No data available for this category."
+                # Format the value based on the category
+                if category.value == "win_percentage":
+                    value = f"{value * 100:.2f}%"  # Convert to percentage
+                elif category.value in ["fastest_time", "average_time"]:
+                    value = f"{value:.2f} seconds"  # Format time
 
-    # Send the embed
-    await interaction.followup.send(embed=embed)
+                # Add the rank, username, and value in the same row
+                leaderboard_text += f"**#{rank}**: {username} - {value}\n"
+
+            embed.description = leaderboard_text
+        else:
+            embed.description = "No data available for this category."
+
+        # Send the embed
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logging.error(f"Error in /wordleleaderboard: {e}")
+        await interaction.followup.send("An error occurred while fetching the leaderboard. Please try again later.")
 
 # Command: Help
 @bot.tree.command(name="helpwordle", description="Get help on how to play Wordle.")
