@@ -1,12 +1,46 @@
 import requests
-import nltk
-from nltk.corpus import words
+import logging
+import re
+def clean_dict_list():
 
-nltk.download('words')
+    #fetching the word list from the dictionary api repo
+
+    response =requests.get("https://raw.githubusercontent.com/meetDeveloper/freeDictionaryAPI/refs/heads/master/meta/wordList/english.txt")
+    try:
+        with open("resources/dictionary-raw-word-list.txt","wb") as file:
+            file.write(response.content)
+    except Exception:
+        raise Exception("exception raised")
+    logging.info("dictionary-raw-word-list.txt file created successfully")
+    #remove the undesired words from the list 
+    try:
+        with open("resources/dictionary-raw-word-list.txt","r", encoding="utf-8") as file :
+            DICT_WORD_LIST = file.read().splitlines()
+    except FileNotFoundError:
+        raise FileNotFoundError("file dictionary-raw-word-list.txt not found")
+    pattern = re.compile("^[a-zA-z]{5,13}$")
+    
+    #create a clean dictionary file
+    try:
+        with open("resources/dictionary-word-list.txt","w") as file :
+            for word in DICT_WORD_LIST :
+                if pattern.match(word):
+                    file.write(f"{word}\n")
+    except Exception :
+        raise Exception("exception raised")
+    logging.info("dictionary-word-list.txt file created successfully")
+
+clean_dict_list()
 
 # Load the words.txt file into memory when the module is imported
+# try:
+#     with open("resources/english.txt", "r") as file:
+#         WORD_LIST = file.read().splitlines()
+# except FileNotFoundError:
+#     raise FileNotFoundError("The words.txt file is missing in the resources folder.")
+
 try:
-    with open("resources/words.txt", "r") as file:
+    with open("resources/dictionary-word-list.txt", "r", encoding="utf-8") as file:
         WORD_LIST = file.read().splitlines()
 except FileNotFoundError:
     raise FileNotFoundError("The words.txt file is missing in the resources folder.")
@@ -33,3 +67,32 @@ def get_words_list(length):
         if len(word) == length and word.isalpha() and word.isascii()
     ]
     return filtered_words
+
+def clean_dict_list():
+
+    #fetching the word list from the dictionary api repo
+
+    response =requests.get("https://raw.githubusercontent.com/meetDeveloper/freeDictionaryAPI/refs/heads/master/meta/wordList/english.txt")
+    try:
+        with open("resources/dictionary-raw-word-list.txt","wb") as file:
+            file.write(response.content)
+    except Exception:
+        raise Exception("exception raised")
+    logging.info("dictionary-raw-word-list.txt file created successfully")
+    #remove the undesired words from the list 
+    try:
+        with open("resources/dictionary-raw-word-list.txt","r") as file :
+            DICT_WORD_LIST = file.read().splitlines()
+    except FileNotFoundError:
+        raise FileNotFoundError("file dictionary-raw-word-list.txt not found")
+    pattern = re.compile("^[a-zA-z]{5,13}$")
+    
+    #create a clean dictionary file
+    try:
+        with open("resources/dictionary-word-list.txt","w") as file :
+            for word in DICT_WORD_LIST :
+                if pattern.match(word):
+                    file.write(f"{word}\n")
+    except Exception :
+        raise Exception("exception raised")
+    logging.info("dictionary-word-list.txt file created successfully")
