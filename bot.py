@@ -21,10 +21,12 @@ import Stats as stats  # Import the Stats module
 import matplotlib.pyplot as plt
 import io
 import matplotlib.patches as patches
+from words import fetch_word_meaning 
+from words import get_words_list # Import the function to fetch word meaning
 
 # Setup logging and environment
 logging.basicConfig(level=logging.INFO)
-nltk.download('words')
+
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -37,7 +39,7 @@ games = {}  # Keeps track of active games per user
 # Initialize the database
 @bot.event
 async def on_ready():
-    await stats.init_db()  # Initialize the database
+
     print("Database initialized.")
     print(f'{bot.user} has connected to Discord!')
     try:
@@ -51,84 +53,110 @@ async def on_ready():
 # Command: Start Wordle
 @bot.tree.command(name="startwordle", description="Start a Wordle game with a specified word length.")
 async def start_wordle(interaction: discord.Interaction, length: int = 5):
-    if length < 5 or length > 13:
-        await interaction.response.send_message("Please choose a word length between 5 and 13.")
-        return
+    try:
+        await interaction.response.defer()  # Acknowledge the interaction immediately
 
-    filtered_words = [
-        word for word in words.words('en')
-        if len(word) == length and word.isalpha() and word.isascii()
-    ]
-    if not filtered_words:
-        await interaction.response.send_message(f"No words found with length {length}. Try a different number.")
-        return
+        if length < 5 or length > 13:
+            await interaction.followup.send("Please choose a word length between 5 and 13.")
+            return
 
-    games[interaction.user.id] = {
-        "game": WordleGame(filtered_words, word_length=length),
-        "start_time": datetime.now()
-    }
+        # Fetch the list of words with the specified length
+        filtered_words = get_words_list(length)
+        if not filtered_words:
+            await interaction.followup.send(f"No words found with length {length}. Try a different number.",ephemeral=True)
+            return
 
-    # Update games played in the database
-    await stats.update_games_played(
-        user_id=str(interaction.user.id),
-        server_id=str(interaction.guild.id),
-        games_played=1
-    )
+        # Initialize the game for the user
+        games[interaction.user.id] = {
+            "game": WordleGame(filtered_words, word_length=length),
+            "start_time": datetime.now()
+        }
 
-    await interaction.response.send_message(
-        f"Wordle game started with {length}-letter words! You get {length + 1} guesses. Use `/guessword yourword` to make a guess."
-    )
+        # Update games played in the database
+        await stats.update_games_played(
+            user_id=str(interaction.user.id),
+            server_id=str(interaction.guild.id),
+            games_played=1
+        )
+
+        await interaction.followup.send(
+            f"Wordle game started with {length}-letter words! You get {length + 1} guesses. Use `/guessword yourword` to make a guess."
+        )
+    except Exception as e:
+        logging.error(f"Error in /startwordle: {e}")
+        await interaction.followup.send("An error occurred while starting the game. Please try again later.")
 
 # Command: Make a Guess
 @bot.tree.command(name="guessword", description="Make a guess in your Wordle game.")
 async def guess_word(interaction: discord.Interaction, guess: str):
-    if interaction.user.id not in games:
-        await interaction.response.send_message("You don't have an active game. Start one with `/startwordle`.", ephemeral=True)
-        return
+    try:
 
-    game_data = games[interaction.user.id]
-    game = game_data["game"]
-    start_time = game_data["start_time"]
+        
 
-    result = game.guess(guess)
-    logging.info(f"Result: {result}")
+        # Check if the user has an active game
+        if interaction.user.id not in games:
+            await interaction.followup.send("You don't have an active game. Start one with `/startwordle`.", ephemeral=True)
+            return
 
-    if game.is_solved():
-        elapsed_time = datetime.now() - start_time
-        minutes, seconds = divmod(elapsed_time.total_seconds(), 60)
+        game_data = games[interaction.user.id]
+        game = game_data["game"]
+        start_time = game_data["start_time"]
 
-        # Update stats only if the word length is 5
-        if game.word_length == 5:
-            await stats.update_stats(
-                user_id=str(interaction.user.id),
-                server_id=str(interaction.guild.id),
-                games_won=1,
-                guess_number=len(game.history),
-                time_taken=int(elapsed_time.total_seconds()),
-                won=True
+        # Process the guess
+        result = game.guess(guess)
+        logging.info(f"Result: {result}")
+
+        if game.is_solved():
+            await interaction.response.defer()
+            elapsed_time = datetime.now() - start_time
+            minutes, seconds = divmod(elapsed_time.total_seconds(), 60)
+
+            # Fetch the word's meaning
+            word_meaning = fetch_word_meaning(game.get_secret_word())
+
+            # Update stats only if the word length is 5
+            if game.word_length == 5:
+                await stats.update_stats(
+                    user_id=str(interaction.user.id),
+                    server_id=str(interaction.guild.id),
+                    games_won=1,
+                    guess_number=len(game.history),
+                    time_taken=int(elapsed_time.total_seconds()),
+                    won=True
+                )
+
+            await interaction.followup.send(
+                f"{result}\n🎉 Congratulations, you solved it in {int(minutes)} minutes and {int(seconds)} seconds!\n\n"
+                f"**Word Meaning:** {word_meaning}"
             )
+            del games[interaction.user.id]
+        elif game.remaining_guesses == 0:
+            # Fetch the word's meaning
+            await interaction.response.defer()
+            word_meaning = fetch_word_meaning(game.get_secret_word())
 
-        await interaction.response.send_message(
-            f"{result}\n🎉 Congratulations, you solved it in {int(minutes)} minutes and {int(seconds)} seconds!"
-        )
-        del games[interaction.user.id]
-    elif game.remaining_guesses == 0:
-        # Update stats only if the word length is 5
-        if game.word_length == 5:
-            await stats.update_stats(
-                user_id=str(interaction.user.id),
-                server_id=str(interaction.guild.id),
-                won=False
+            # Update stats only if the word length is 5
+            if game.word_length == 5:
+                await stats.update_stats(
+                    user_id=str(interaction.user.id),
+                    server_id=str(interaction.guild.id),
+                    won=False
+                )
+
+            await interaction.followup.send(
+                f"{result}\n😢 Better luck next time! The word was **{game.get_secret_word()}**.\n\n"
+                f"**Word Meaning:** {word_meaning}"
             )
-
-        await interaction.response.send_message(f"{result}\n😢 Better luck next time!")
-        del games[interaction.user.id]
-    elif game.is_error():
-        logging.info(f"Error in the chat: {result}")
-        await interaction.response.send_message(result, ephemeral=True)
-        game.reset_errors()
-    else:
-        await interaction.response.send_message(result)
+            del games[interaction.user.id]
+        elif game.is_error():
+            logging.info(f"Error in the chat: {result}")
+            await interaction.response.send_message(result, ephemeral=True)
+            game.reset_errors()
+        else:
+            await interaction.response.send_message(result)
+    except Exception as e:
+        logging.error(f"Error in /guessword: {e}")
+        await interaction.response.send_message("An error occurred while processing your guess. Please try again later.")
 
 # Command: View Statistics
 @bot.tree.command(name="wordleuserstats", description="View your Wordle statistics.")
