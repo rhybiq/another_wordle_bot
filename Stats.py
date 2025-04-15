@@ -147,43 +147,29 @@ async def fetch_server_rankings(server_id, user_id):
     }
 
 async def fetch_leaderboard(server_id, category):
-    async with aiosqlite.connect(DATABASE_FILE) as db:
-        if category == "win_percentage":
-            query = """
-                SELECT user_id, games_won * 1.0 / games_played AS win_percentage
-                FROM user_stats
-                WHERE server_id = ? AND games_played > 0
-                ORDER BY win_percentage DESC
-                LIMIT 5
-            """
-        elif category == "fastest_time":
-            query = """
-                SELECT user_id, fastest_time
-                FROM user_stats
-                WHERE server_id = ? AND fastest_time > 0
-                ORDER BY fastest_time ASC
-                LIMIT 5
-            """
-        elif category == "average_time":
-            query = """
-                SELECT user_id, average_time
-                FROM user_stats
-                WHERE server_id = ? AND average_time > 0
-                ORDER BY average_time ASC
-                LIMIT 5
-            """
-        elif category == "max_streak":
-            query = """
-                SELECT user_id, max_streak
-                FROM user_stats
-                WHERE server_id = ?
-                ORDER BY max_streak DESC
-                LIMIT 5
-            """
-        else:
-            return []
+    # Define the column to sort by based on the category
+    if category == "win_percentage":
+        sort_column = "games_won / NULLIF(games_played, 0)"  # Avoid division by zero
+        order = "desc"
+    elif category == "fastest_time":
+        sort_column = "fastest_time"
+        order = "asc"
+    elif category == "average_time":
+        sort_column = "average_time"
+        order = "asc"
+    elif category == "max_streak":
+        sort_column = "max_streak"
+        order = "desc"
+    else:
+        return []
 
-        async with db.execute(query, (server_id,)) as cursor:
-            rows = await cursor.fetchall()
+    # Fetch leaderboard data from Supabase
+    response = supabase.rpc(
+        "fetch_leaderboard",  # Replace with a Supabase function if needed
+        {
+            "server_id": server_id,
+            "category": category,
+        }
+    ).execute()
 
-    return rows
+    return response.data
