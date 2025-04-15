@@ -8,3 +8,5 @@ enchant
 nltk
 aiosqlite
 matplotlib
+supabase
+ https://app.supabase.com

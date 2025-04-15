@@ -63,7 +63,9 @@ class WordleGame:
         return self.errors
     def reset_errors(self):
         self.errors = False
-
+    def get_secret_word(self):
+        return self.secret_word
+    
     def _evaluate_guess(self, guess):
         result = []
         secret_temp = list(self.secret_word)
