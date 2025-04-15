@@ -171,7 +171,7 @@ async def view_stats(interaction: discord.Interaction):
 
     # Add rankings to the embed
     embed.add_field(name="Win Rank", value=f"#{win_rank}" if win_rank else "N/A", inline=True)
-    embed.add_field(name="Fastest Rank", value=f"#{fastest_rank}" if fastest_rank else "N/A", inline=True)
+    embed.add_field(name="Quickest Solve Rank", value=f"#{fastest_rank}" if fastest_rank else "N/A", inline=True)
     embed.add_field(name="Avg Time Rank", value=f"#{average_rank}" if average_rank else "N/A", inline=True)
 
     # Add guess distribution to the embed
@@ -188,48 +188,52 @@ async def view_stats(interaction: discord.Interaction):
 
 # Command: View Leaderboard
 @bot.tree.command(name="wordleleaderboard", description="View the Wordle leaderboard for this server.")
-async def wordle_leaderboard(interaction: discord.Interaction, category: str):
-    # Validate the category
-    valid_categories = ["win_percentage", "fastest_time", "average_time", "max_streak"]
-    if category not in valid_categories:
-        await interaction.response.send_message(
-            f"Invalid category! Please choose from: {', '.join(valid_categories)}.",
-            ephemeral=True
-        )
-        return
-
+@app_commands.describe(category="Choose a leaderboard category")
+@app_commands.choices(
+    category=[
+        app_commands.Choice(name="Top Win Percentage", value="win_percentage"),
+        app_commands.Choice(name="Quickest Solve", value="fastest_time"),
+        app_commands.Choice(name=" Avg Time", value="average_time"),
+        app_commands.Choice(name=" Winning Streak", value="max_streak"),
+    ]
+)
+async def wordle_leaderboard(interaction: discord.Interaction, category: app_commands.Choice[str]):
     # Fetch leaderboard data
     leaderboard = await stats.fetch_leaderboard(
         server_id=str(interaction.guild.id),
-        category=category
+        category=category.value  # Use the value of the selected choice
     )
 
     # Map category names to display names
     category_display = {
         "win_percentage": "Top Win Percentage",
-        "fastest_time": "Fastest Time",
-        "average_time": "Fastest Average Time",
-        "max_streak": "Biggest Max Streak"
+        "fastest_time": "Quickest Solve",
+        "average_time": " Avg Time",
+        "max_streak": " Winning Streak"
     }
 
     # Create the embed
     embed = discord.Embed(
-        title=f"Wordle Leaderboard - {category_display[category]}",
+        title=f"Wordle Leaderboard - {category_display[category.value]}",
         color=discord.Color.gold()
     )
 
     if leaderboard:
+        leaderboard_text = ""
         for rank, (user_id, value) in enumerate(leaderboard, start=1):
             user = await bot.fetch_user(user_id)  # Fetch the user's name
-            if category == "win_percentage":
+            username = user.name if user else "Unknown User"
+
+            # Format the value based on the category
+            if category.value == "win_percentage":
                 value = f"{value * 100:.2f}%"  # Convert to percentage
-            elif category in ["fastest_time", "average_time"]:
+            elif category.value in ["fastest_time", "average_time"]:
                 value = f"{value:.2f} seconds"  # Format time
-            embed.add_field(
-                name=f"#{rank}: {user.name if user else 'Unknown User'}",
-                value=f"{value}",
-                inline=False
-            )
+
+            # Add the rank, username, and value in the same row
+            leaderboard_text += f"**#{rank}**: {username} - {value}\n"
+
+        embed.description = leaderboard_text
     else:
         embed.description = "No data available for this category."
 
@@ -243,19 +247,30 @@ async def help_wordle(interaction: discord.Interaction):
         "**How to Play Wordle on Discord** 🧠\n\n"
         "🎯 The goal is to guess a secret word within a limited number of tries.\n\n"
         "**Commands:**\n"
-        "`/startwordle [length]` – Starts a new game. You can specify word length (default is 5).\n"
-        "`/guessword yourword` – Submit a guess.\n"
-        "`/stats` – View your Wordle statistics.\n"
+        "`/startwordle [length]` – Starts a new game. You can specify the word length (default is 5).\n"
+        "`/guessword yourword` – Submit a guess for the current game.\n"
+        "`/wordleuserstats` – View your Wordle statistics, including games played, win percentage, and streaks.\n"
+        "`/wordleleaderboard [category]` – View the top players in the server for a specific category.\n"
         "`/helpwordle` – Shows this help message.\n\n"
+        "**Leaderboard Categories:**\n"
+        "1. `Top Win Percentage` – Players with the highest win percentage.\n"
+        "2. `Fastest Time` – Players with the fastest solved games.\n"
+        "3. `Fastest Average Time` – Players with the fastest average solve time.\n"
+        "4. `Biggest Winning Streak` – Players with the longest winning streak.\n\n"
         "**Rules:**\n"
-        "🟩 = Correct letter in correct place\n"
+        "🟩 = Correct letter in the correct place\n"
         "🟨 = Correct letter, wrong place\n"
         "⬛ = Letter not in the word\n\n"
+        "**How to Win:**\n"
         "✅ You win by guessing the word before running out of guesses!\n"
         "⛔ You lose if you run out of guesses.\n\n"
         "_Example:_\n"
         "`guess: GRAPE`\n"
-        "`result: 🟨⬛⬛🟩🟩`"
+        "`result: 🟨⬛⬛🟩🟩`\n\n"
+        "**Tips:**\n"
+        "- Use `/wordleleaderboard` to see how you rank against other players in the server.\n"
+        "- Focus on common vowels and consonants to narrow down the word quickly.\n"
+        "- Keep track of your guesses to avoid repeating letters."
     )
     await interaction.response.send_message(help_text)
 
