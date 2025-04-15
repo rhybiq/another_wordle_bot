@@ -172,6 +172,8 @@ async def view_stats(interaction: discord.Interaction):
     )
     guess_distribution = stats_data["guess_distribution"]
 
+    await interaction.response.defer()
+
     # Calculate additional statistics
     games_played = stats_data["games_played"]
     games_won = stats_data["games_won"]
@@ -212,7 +214,7 @@ async def view_stats(interaction: discord.Interaction):
         embed.add_field(name="Guess Distribution", value="No data available", inline=False)
 
     # Send the embed
-    await interaction.response.send_message(embed=embed)
+    await interaction.followup.send(embed=embed)
 
 # Command: View Leaderboard
 @bot.tree.command(name="wordleleaderboard", description="View the Wordle leaderboard for this server.")
@@ -245,7 +247,7 @@ async def wordle_leaderboard(interaction: discord.Interaction, category: app_com
         title=f"Wordle Leaderboard - {category_display[category.value]}",
         color=discord.Color.gold()
     )
-
+    await interaction.response.defer()
     if leaderboard:
         leaderboard_text = ""
         for rank, (user_id, value) in enumerate(leaderboard, start=1):
@@ -266,7 +268,7 @@ async def wordle_leaderboard(interaction: discord.Interaction, category: app_com
         embed.description = "No data available for this category."
 
     # Send the embed
-    await interaction.response.send_message(embed=embed)
+    await interaction.followup.send(embed=embed)
 
 # Command: Help
 @bot.tree.command(name="helpwordle", description="Get help on how to play Wordle.")
