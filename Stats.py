@@ -112,24 +112,33 @@ async def fetch_stats(user_id, server_id):
         }
 
 async def fetch_server_rankings(server_id, user_id):
-    async with aiosqlite.connect(DATABASE_FILE) as db:
-        # Fetch all users' stats in the server
-        async with db.execute("""
-            SELECT user_id, games_won * 1.0 / games_played AS win_percentage, fastest_time, average_time
-            FROM user_stats
-            WHERE server_id = ? AND games_played > 0
-        """, (server_id,)) as cursor:
-            rows = await cursor.fetchall()
+    # Fetch all users' stats in the server from Supabase
+    response = supabase.table("user_stats").select(
+        "user_id, games_won, games_played, fastest_time, average_time"
+    ).eq("server_id", server_id).execute()
+
+    rows = response.data if response.data else []
+
+    # Calculate win percentage and filter out users with no games played
+    rankings = [
+        {
+            "user_id": row["user_id"],
+            "win_percentage": row["games_won"] / row["games_played"] if row["games_played"] > 0 else 0,
+            "fastest_time": row["fastest_time"] if row["fastest_time"] > 0 else float("inf"),
+            "average_time": row["average_time"] if row["average_time"] > 0 else float("inf"),
+        }
+        for row in rows if row["games_played"] > 0
+    ]
 
     # Sort rankings
-    win_percentage_rank = sorted(rows, key=lambda x: x[1], reverse=True)
-    fastest_time_rank = sorted(rows, key=lambda x: x[2] if x[2] > 0 else float('inf'))
-    average_time_rank = sorted(rows, key=lambda x: x[3] if x[3] > 0 else float('inf'))
+    win_percentage_rank = sorted(rankings, key=lambda x: x["win_percentage"], reverse=True)
+    fastest_time_rank = sorted(rankings, key=lambda x: x["fastest_time"])
+    average_time_rank = sorted(rankings, key=lambda x: x["average_time"])
 
-    # Find the user's rank
-    user_win_rank = next((i + 1 for i, row in enumerate(win_percentage_rank) if row[0] == user_id), None)
-    user_fastest_rank = next((i + 1 for i, row in enumerate(fastest_time_rank) if row[0] == user_id), None)
-    user_average_rank = next((i + 1 for i, row in enumerate(average_time_rank) if row[0] == user_id), None)
+    # Find the user's rank in each category
+    user_win_rank = next((i + 1 for i, row in enumerate(win_percentage_rank) if row["user_id"] == user_id), None)
+    user_fastest_rank = next((i + 1 for i, row in enumerate(fastest_time_rank) if row["user_id"] == user_id), None)
+    user_average_rank = next((i + 1 for i, row in enumerate(average_time_rank) if row["user_id"] == user_id), None)
 
     return {
         "win_rank": user_win_rank,
