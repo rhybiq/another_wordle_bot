@@ -152,8 +152,7 @@ async def fetch_leaderboard(server_id, category):
         "user_id, games_won, games_played, fastest_time, average_time, max_streak"
     ).eq("server_id", server_id).execute()
 
-    if response.error:
-        raise Exception(f"Supabase error: {response.error}")
+    
 
     rows = response.data if response.data else []
 
