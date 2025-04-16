@@ -151,7 +151,9 @@ async def fetch_leaderboard(server_id, category):
     response = supabase.table("user_stats").select(
         "user_id, games_won, games_played, fastest_time, average_time, max_streak"
     ).eq("server_id", server_id).execute()
-    
+
+    if response.error:
+        raise Exception(f"Supabase error: {response.error}")
 
     rows = response.data if response.data else []
 
@@ -199,4 +201,5 @@ async def fetch_leaderboard(server_id, category):
     else:
         raise ValueError(f"Invalid category: {category}")
 
-    return leaderboard
+    # Return only the top 5 entries
+    return leaderboard[:5]

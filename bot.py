@@ -36,11 +36,17 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
 games = {}  # Keeps track of active games per user
 
+
+async def heartbeat():
+    while True:
+        logging.info("Bot heartbeat")
+        await asyncio.sleep(60)
+
 # Initialize the database
 @bot.event
 async def on_ready():
-
-    print("Database initialized.")
+    bot.loop.create_task(heartbeat())
+   
     print(f'{bot.user} has connected to Discord!')
     try:
         # Clear and resync commands
