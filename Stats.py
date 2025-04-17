@@ -1,10 +1,12 @@
 import aiosqlite
 import json
 from supabase_client import supabase
+import logging
 
-DATABASE_FILE = "user_stats.db"
 
 
+# Setup logging and environment
+logging.basicConfig(level=logging.INFO)
 
 # Update statistics in the database
 async def update_stats(user_id, server_id, games_played=0, games_won=0, guess_number=None, time_taken=None, won=False):
@@ -37,6 +39,34 @@ async def update_stats(user_id, server_id, games_played=0, games_won=0, guess_nu
     if time_taken is not None:
         if current_fastest_time == 0 or time_taken < current_fastest_time:
             current_fastest_time = time_taken
+
+        # Insert the solve time into the fastest_solves table
+        supabase.table("fastest_solves").insert({
+            "user_id": user_id,
+            "server_id": server_id,
+            "solve_time": time_taken
+        }).execute()
+
+        # Fetch the top 10 fastest solves for this user in this server
+        response = (
+            supabase.table("fastest_solves")
+            .select("*")
+            .eq("server_id", server_id)
+            #.order([{ column: 'solve_time', order: 'asc' }])
+            .limit(10)
+            .execute() )
+        
+
+        fastest_solves = response.data if response.data else []
+        logging.info(f"Fastest solves: {len(fastest_solves)}")
+        
+        # Sort the list by solve_time in ascending order
+        sorted_solves = sorted(fastest_solves, key=lambda x: x["solve_time"])
+
+        # Delete any solves beyond the top 10
+        if len(sorted_solves) > 10:
+            to_delete_ids = [solve["id"] for solve in sorted_solves[10:]]
+            supabase.table("fastest_solves").delete().in_("id", to_delete_ids).execute()
 
     # Update average time
     if time_taken is not None:
@@ -202,3 +232,20 @@ async def fetch_leaderboard(server_id, category):
 
     # Return only the top 5 entries
     return leaderboard[:5]
+
+async def fetch_fastest_solves(server_id):
+    # Fetch the top 10 fastest solves for the server
+    response = supabase.table("fastest_solves").select(
+        "user_id, solve_time"
+    ).eq("server_id", server_id).limit(10).execute()
+
+    # Check for errors in the response
+    
+
+    # Access the data attribute
+    fastest_solves = response.data if response.data else []
+
+    # Sort the list by solve_time in ascending order
+    sorted_list = sorted(fastest_solves, key=lambda x: x["solve_time"])
+
+    return sorted_list
