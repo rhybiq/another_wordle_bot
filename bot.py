@@ -247,6 +247,7 @@ async def wordleleaderboard(interaction: discord.Interaction, category: app_comm
             "fastest_solve": "Fastest time"  # New category
         }
 
+
         if category.value == "fastest_solve":
             # Fetch top 10 fastest solves from the new table
             leaderboard = await stats.fetch_fastest_solves(
