@@ -228,10 +228,10 @@ async def view_stats(interaction: discord.Interaction):
 @app_commands.choices(
     category=[
         app_commands.Choice(name="Top Win Percentage", value="win_percentage"),
-        app_commands.Choice(name="Quickest Solve", value="fastest_time"),
+        app_commands.Choice(name="Quickest User", value="fastest_time"),
         app_commands.Choice(name="Avg Time", value="average_time"),
         app_commands.Choice(name="Winning Streak", value="max_streak"),
-        app_commands.Choice(name="Fastest Solve", value="fastest_solve"),  # New category
+        app_commands.Choice(name="Fastest time", value="fastest_solve"),  # New category
     ]
 )
 async def wordleleaderboard(interaction: discord.Interaction, category: app_commands.Choice[str]):
@@ -241,10 +241,10 @@ async def wordleleaderboard(interaction: discord.Interaction, category: app_comm
         # Map category names to display names
         category_display = {
             "win_percentage": "Top Win Percentage",
-            "fastest_time": "Quickest Solve",
+            "fastest_time": "Quickest User",
             "average_time": "Avg Time",
             "max_streak": "Winning Streak",
-            "fastest_solve": "Fastest Solve"  # New category
+            "fastest_solve": "Fastest time"  # New category
         }
 
         if category.value == "fastest_solve":
