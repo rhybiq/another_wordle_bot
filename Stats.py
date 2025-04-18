@@ -53,7 +53,6 @@ async def update_stats(user_id, server_id, games_played=0, games_won=0, guess_nu
             .select("*")
             .eq("server_id", server_id)
             #.order([{ column: 'solve_time', order: 'asc' }])
-            .limit(10)
             .execute() )
         
 
