@@ -236,7 +236,7 @@ async def fetch_fastest_solves(server_id):
     # Fetch the top 10 fastest solves for the server
     response = supabase.table("fastest_solves").select(
         "user_id, solve_time"
-    ).eq("server_id", server_id).limit(10).execute()
+    ).eq("server_id", server_id).execute()
 
     # Check for errors in the response
     
