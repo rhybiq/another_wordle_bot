@@ -74,7 +74,7 @@ async def update_stats(user_id, server_id, games_played=0, games_won=0, guess_nu
         current_average_time = total_time / current_games_won if current_games_won > 0 else 0
 
     # Update games played and streaks
-    current_games_played += games_played
+    
     if won:
         current_streak += 1
         max_streak = max(max_streak, current_streak)
